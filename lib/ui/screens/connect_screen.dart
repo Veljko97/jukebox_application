@@ -1,10 +1,12 @@
 import 'package:barcode_scan/barcode_scan.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:jukebox_application/ui/screen_controllers/connect_screen_controller.dart';
 import 'package:jukebox_application/ui/screens/reusable/fiield_button.dart';
 import 'package:jukebox_application/utils/constants.dart';
 import 'package:jukebox_application/utils/server_location_utils.dart';
 import 'package:jukebox_application/utils/utils.dart';
+import 'package:uni_links/uni_links.dart';
 
 class ConnectScreen extends StatefulWidget {
   @override
@@ -20,7 +22,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {});
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      initUniLinks();
+    });
   }
 
   @override
@@ -56,21 +60,37 @@ class _ConnectScreenState extends State<ConnectScreen> {
     );
   }
 
+  initUniLinks() async {
+    try {
+      String initialLink = await getInitialLink();
+      if (initialLink != null && initialLink.isNotEmpty) {
+        initialLink = getServerKeyFromLink(initialLink);
+        connectToServer(initialLink);
+      }
+    } on PlatformException {}
+  }
+
   startScan() async {
-//    var result = await BarcodeScanner.scan();
-//    if (result != null &&
-//        result.rawContent != null &&
-//        result.rawContent.isNotEmpty) {
-//
-//    }
     String serverCode = _serverCodeController.text;
-    ConnectScreenController().getServerLocations(serverCode, (responseModel) {
+    if (serverCode == null || serverCode.isEmpty) {
+      var result = await BarcodeScanner.scan();
+      if (result != null &&
+          result.rawContent != null &&
+          result.rawContent.isNotEmpty) {
+        serverCode = getServerKeyFromLink(result.rawContent);
+      }
+    }
+    connectToServer(serverCode);
+  }
+
+  void connectToServer(String serverKey){
+    ConnectScreenController().getServerLocations(serverKey, (responseModel) {
       if (responseModel != null) {
         if (responseModel.error != null) {
-          showSnackBar(context, responseModel.error);
+          showSnackBar(context, "Did not connect try saning again");
         } else {
           ServerLocationsUtils.IP_ADDRESS = responseModel.response.location;
-          Navigator.of(context).pushNamed(Constants.ROUTE_MUSIC_SCREEN);
+          Navigator.of(context).pushNamedAndRemoveUntil(Constants.ROUTE_MUSIC_SCREEN, (_) => false);
         }
       }
     });

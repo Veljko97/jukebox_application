@@ -22,6 +22,7 @@ class _MusicScreenState extends State<MusicScreen> {
   int _selectedSongId;
   bool _first = true;
 
+  int _currentSongId;
   int _songTime;
   int _songEndTime;
   int samplesPerSec = 1;
@@ -34,6 +35,7 @@ class _MusicScreenState extends State<MusicScreen> {
         _dataProvider.setMusicChannel(MusicScreenController().getWebSocket());
       }
       getServerTimeDifference();
+      getCurrentSong();
     });
   }
 
@@ -45,7 +47,7 @@ class _MusicScreenState extends State<MusicScreen> {
     }
     return Scaffold(
       body: Builder(builder: (buildContext) {
-        context = buildContext;
+        this.context = buildContext;
         return buildBody();
       }),
     );
@@ -76,9 +78,6 @@ class _MusicScreenState extends State<MusicScreen> {
             }
           },
         ),
-        Center(
-          child: RaisedButton(onPressed: () => getCurrentSong()),
-        ),
         StreamBuilder(
           stream: _dataProvider.musicChannel?.stream ?? null,
           builder: (context, snapshot) {
@@ -88,11 +87,13 @@ class _MusicScreenState extends State<MusicScreen> {
                 _songs = nextSongStarted.votingList;{
                 _songs.songList.sort((el1, el2) => el1.songId - el2.songId);
               }
-              if(nextSongStarted.nextSong != null) {
+              if(nextSongStarted.nextSong != null && _currentSongId != nextSongStarted.nextSong.songId) {
                 parsSong(nextSongStarted.nextSong);
               }
             } else {
-              return Container();
+              if (_songs == null || _songs.songList.isEmpty) {
+                return Container();
+              }
             }
             return Container(
               height: 200,
@@ -107,6 +108,7 @@ class _MusicScreenState extends State<MusicScreen> {
                       setState(() {
                         _selectedSongId = value;
                       });
+                      voteOnSong(value);
                     },
                   );
                 },
@@ -118,12 +120,22 @@ class _MusicScreenState extends State<MusicScreen> {
     );
   }
 
+  void voteOnSong(int songId){
+    MusicScreenController().voteOnSong(songId, (responseModel) {
+      if(responseModel != null){
+        if (responseModel.error != null){
+          showSnackBar(this.context, responseModel.error);
+        }
+      }
+    });
+  }
+
   void getServerTimeDifference(){
     var start = DateTime.now().millisecondsSinceEpoch;
     MusicScreenController().getCurrentSong((responseModel) {
       if (responseModel != null) {
         if (responseModel.error != null) {
-          print("${responseModel.error}");
+          showSnackBar(context, responseModel.error);
         } else {
           int end = DateTime.now().millisecondsSinceEpoch;
           int requestTime = end - start;
@@ -148,25 +160,24 @@ class _MusicScreenState extends State<MusicScreen> {
   }
 
 
-  void parsSong(CurrentSongDescriptionModel currentSongDescription){
+  void parsSong(CurrentSongDescriptionModel currentSongDescription, {isStream = false}){
     var currentTime = DateTime.now().millisecondsSinceEpoch;
     var diff = currentTime - currentSongDescription.timestamp;
     diff = diff - _dataProvider.standardTimeDiff;
 
-    int songTime = currentSongDescription.songCurrentMilliseconds + diff;
-    int songEndTime = currentSongDescription.songMaxMilliseconds;
-    print("secs ${songTime} current $_songTime and diff $diff, sampleRate ${currentSongDescription.sampleRate}");
+    //TODO: calculate diff based on sample rate
 
-    if(_songTime != null && _songTime > songTime){
-      return;
-    }
+    int songTime = currentSongDescription.songCurrentSample + diff;
+    int songEndTime = currentSongDescription.songMaxSample;
+//    print("secs ${songTime} current $_songTime and diff $diff, sampleRate ${currentSongDescription.sampleRate}");
 
     if(_songTime != null) {
       String strValue = (_songTime/currentSongDescription.sampleRate).toStringAsFixed(0);
-      int intValue = int.parse(strValue);
-      print("${intValue}");
-      print("${songTime - _songTime}");
+//      int intValue = int.parse(strValue);
+//      print("${intValue}");
+//      print("${songTime - _songTime}");
     }
+    _currentSongId = currentSongDescription.songId;
     samplesPerSec = currentSongDescription.sampleRate;
     _songTime = songTime;
     _songEndTime = songEndTime;

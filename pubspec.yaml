@@ -29,6 +29,7 @@ dependencies:
   provider: ^4.3.2
   barcode_scan: ^3.0.1
 
+  uni_links: ^0.4.0
   #Formating
   intl: ^0.16.1
 

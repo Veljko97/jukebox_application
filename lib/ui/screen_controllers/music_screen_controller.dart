@@ -25,6 +25,11 @@ class MusicScreenController {
     MusicRepository().getServerTime(responseListener);
   }
 
+  void voteOnSong( int songId,
+      Function(ResponseModel) responseListener) async {
+    MusicRepository().voteOnSong(songId, responseListener);
+  }
+
   IOWebSocketChannel getWebSocket(){
     return MusicRepository().getWebSocket();
   }

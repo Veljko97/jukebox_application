@@ -12,9 +12,13 @@ class MusicRepository {
   final String WEB_SOCKET_CONNECTION =
       ServerLocationsUtils.BASE_WEB_SOCKET + "/ws/music";
   final String GET_CURRENT_SONG =
-      ServerLocationsUtils.BASE_HTTP + "/api/music/getDetails";
+      ServerLocationsUtils.BASE_HTTP + "/api/music/getCurrentSong";
+  final String GET_CURRENT_PLAYLIST =
+      ServerLocationsUtils.BASE_HTTP + "/api/music/getCurrentSongList";
   final String GET_TIMESTAMP =
       ServerLocationsUtils.BASE_HTTP + "/api/getServerTime";
+  final String VOTE_ON_SONG =
+      ServerLocationsUtils.BASE_HTTP + "/api/music/voteOnSong/";
 
   static final MusicRepository _instance = MusicRepository._internal();
 
@@ -65,6 +69,20 @@ class MusicRepository {
         responseModel.error = "${response.statusCode} but empty";
       }
     } else {
+      responseModel.error = "${response.statusCode}";
+    }
+
+    responseListener(responseModel);
+  }
+
+  void voteOnSong( int songId,
+      Function(ResponseModel) responseListener) async {
+    ResponseModel responseModel =
+    ResponseModel();
+
+    var response = await http.put("$VOTE_ON_SONG$songId",body: "");
+
+    if (response.statusCode != 200) {
       responseModel.error = "${response.statusCode}";
     }
 

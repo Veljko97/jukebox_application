@@ -2,16 +2,18 @@
 class CurrentSongDescriptionModel {
 
   int timestamp;
+  int songId;
   String name;
-  int songCurrentMilliseconds;
-  int songMaxMilliseconds;
+  int songCurrentSample;
+  int songMaxSample;
   int sampleRate;
 
   CurrentSongDescriptionModel.fromJson(Map<String, dynamic> json)
       : timestamp = json['timestamp'],
+        songId = json['songId'],
         name = json['name'],
-        songCurrentMilliseconds= json['songCurrentMilliseconds'],
-        songMaxMilliseconds = json['songMaxMilliseconds'],
+        songCurrentSample= json['songCurrentSample'],
+        songMaxSample = json['songMaxSample'],
         sampleRate = json['sampleRate'];
 
 }
