@@ -19,8 +19,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Local Jukebox',
         theme: ThemeData(
-          primarySwatch: Colors.blue,
-          visualDensity: VisualDensity.adaptivePlatformDensity,
+          brightness: Brightness.dark,
         ),
         routes:{
           Constants.ROUTE_CONNECTION_SCREEN: (_) => ConnectScreen(),

@@ -87,7 +87,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     ConnectScreenController().getServerLocations(serverKey, (responseModel) {
       if (responseModel != null) {
         if (responseModel.error != null) {
-          showSnackBar(context, "Did not connect try saning again");
+          showSnackBar(context, "Did not connect try scanning again");
         } else {
           ServerLocationsUtils.IP_ADDRESS = responseModel.response.location;
           Navigator.of(context).pushNamedAndRemoveUntil(Constants.ROUTE_MUSIC_SCREEN, (_) => false);

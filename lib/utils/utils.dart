@@ -3,7 +3,11 @@
 import 'package:flutter/material.dart';
 
 String formatDuration(Duration duration){
-  return "${duration.inMinutes.remainder(60)}:${duration.inSeconds.remainder(60)}";
+  return "${duration.inMinutes.remainder(60)}:${addZero(duration.inSeconds.remainder(60))}";
+}
+
+String addZero(int original){
+  return '$original'.padLeft(2, "0");
 }
 
 
