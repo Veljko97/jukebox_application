@@ -10,7 +10,8 @@ import 'package:jukebox_application/repository/model/music/song_item_model.dart'
 import 'package:jukebox_application/repository/model/music/song_pick_model.dart';
 import 'package:jukebox_application/ui/providers/data_provider.dart';
 import 'package:jukebox_application/ui/screen_controllers/music_screen_controller.dart';
-import 'package:jukebox_application/ui/screens/reusable/MuvingText.dart';
+import 'package:jukebox_application/ui/screens/reusable/moving_text.dart';
+import 'package:jukebox_application/ui/screens/reusable/custom_progress_indicator.dart';
 import 'package:jukebox_application/ui/screens/reusable/fiield_button.dart';
 import 'package:jukebox_application/utils/utils.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,8 @@ class _MusicScreenState extends State<MusicScreen>
   BuildContext context;
   IOWebSocketChannel _webSocketChannel;
 
+  GlobalKey _progressKey = GlobalKey();
+
   SongPickModels _songs;
   int _selectedSongId;
   bool _first = true;
@@ -35,9 +38,12 @@ class _MusicScreenState extends State<MusicScreen>
   double _songTime;
   int _songEndTime;
   int samplesPerSec = 1;
+  StreamController<SongPickModels> _songsStream = StreamController.broadcast();
+  StreamController<String> _songNameStream = StreamController.broadcast();
   StreamController<double> _songStream = StreamController.broadcast();
   StreamSubscription _streamSub;
 
+  List<SongItemModel> _tempSongs = [];
   List<SongItemModel> _allSongs = [];
 
   TabController _tabController;
@@ -55,10 +61,8 @@ class _MusicScreenState extends State<MusicScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      _webSocketChannel = MusicScreenController().getWebSocket();
-      _webSocketChannel.stream.listen(webSocketListener);
+      resetWebSocket();
       getCurrentSong();
-      getVotingSongs();
     });
   }
 
@@ -68,15 +72,15 @@ class _MusicScreenState extends State<MusicScreen>
       if (nextSongStarted.votingList != null) {
         _songs = nextSongStarted.votingList;
         _songs.songList.sort((el1, el2) => el1.songId - el2.songId);
-        setState(() {
-          _songs;
-        });
+
+        _songsStream.sink.add(_songs);
       }
       if (nextSongStarted.nextSong != null &&
           _currentSongId != nextSongStarted.nextSong.songId &&
           nextSongStarted.nextSong.songId != -1) {
         _selectedSongId = -1;
         parsSong(nextSongStarted.nextSong);
+        _songNameStream.sink.add(nextSongStarted.nextSong.name);
       }
     }
   }
@@ -96,10 +100,10 @@ class _MusicScreenState extends State<MusicScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         getCurrentSong();
+        resetWebSocket();
         break;
       case AppLifecycleState.detached:
         _webSocketChannel.sink.close();
-        print("detached");
         break;
       default:
         break;
@@ -151,37 +155,40 @@ class _MusicScreenState extends State<MusicScreen>
           child: _songs == null || _songs.songList.isEmpty
               ? Container()
               : Container(
-                  height: 200,
-                  child: ListView.builder(
-                    itemCount: _songs.songList.length,
-                    itemBuilder: (context, index) {
-                      return RadioListTile(
-                        title: Row(
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: Text(
-                                "${_songs.songList[index].songVotes}",
-                                style: TextStyle(
-                                    color: Theme.of(context).accentColor),
+                  alignment: Alignment.center,
+                  child: StreamBuilder<Object>(
+                      stream: _songsStream.stream,
+                      builder: (context, snapshot) {
+                        return ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: _songs.songList.length,
+                          itemBuilder: (context, index) {
+                            return RadioListTile(
+                              title: Row(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: Text(
+                                      "${_songs.songList[index].songVotes}",
+                                      style: TextStyle(
+                                          color: Theme.of(context).accentColor),
+                                    ),
+                                  ),
+                                  Expanded(
+                                      child: Text(
+                                          "${_songs.songList[index].songName}")),
+                                ],
                               ),
-                            ),
-                            Expanded(
-                                child:
-                                    Text("${_songs.songList[index].songName}")),
-                          ],
-                        ),
-                        value: _songs.songList[index].songId,
-                        groupValue: _selectedSongId,
-                        onChanged: (int value) {
-                          setState(() {
-                            _selectedSongId = value;
-                          });
-                          voteOnSong(value);
-                        },
-                      );
-                    },
-                  ),
+                              value: _songs.songList[index].songId,
+                              groupValue: _selectedSongId,
+                              onChanged: (int value) {
+                                _selectedSongId = value;
+                                voteOnSong(value);
+                              },
+                            );
+                          },
+                        );
+                      }),
                 ),
         ),
         Container(
@@ -190,8 +197,13 @@ class _MusicScreenState extends State<MusicScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text("${_currentSongName}"),
-//              MovingText(text:"${_currentSongName}", textStyle: TextStyle(fontSize: 12),),
+              StreamBuilder(
+                stream: _songNameStream.stream,
+                builder: (_, snapshot) => MovingText(
+                  text: "${_currentSongName}",
+                  textStyle: TextStyle(fontSize: 12),
+                ),
+              ),
               _songStream != null
                   ? StreamBuilder(
                       stream: _songStream.stream,
@@ -204,7 +216,6 @@ class _MusicScreenState extends State<MusicScreen>
                               (_songEndTime / samplesPerSec).toStringAsFixed(0);
                           int endIntValue = int.parse(endTime);
                           return Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -212,15 +223,17 @@ class _MusicScreenState extends State<MusicScreen>
                                 child: LinearProgressIndicator(
                                   minHeight: 10,
                                   value: snapshot.data / 100,
-                                  backgroundColor: Theme.of(context).canvasColor,
+                                  backgroundColor:
+                                      Theme.of(context).canvasColor,
                                   valueColor: new AlwaysStoppedAnimation<Color>(
                                       Theme.of(context).accentColor),
                                 ),
                               ),
                               Text("${formatDuration(
                                 Duration(
-                                    seconds:
-                                        _songTime != null ? currentIntValue : 0),
+                                    seconds: _songTime != null
+                                        ? currentIntValue
+                                        : 0),
                               )}/${formatDuration(
                                 Duration(
                                     seconds:
@@ -245,12 +258,15 @@ class _MusicScreenState extends State<MusicScreen>
     return Column(
       mainAxisSize: MainAxisSize.max,
       children: [
-        SizedBox(
-          height: 29,
-          child: FilledButton(
-            text: "Upload Your Song",
-            colorFill: Theme.of(context).buttonColor,
-            onCLick: uploadSong,
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: SizedBox(
+            height: 30,
+            child: FilledButton(
+              text: "Upload Your Song",
+              colorFill: Theme.of(context).buttonColor,
+              onCLick: uploadSong,
+            ),
           ),
         ),
         Expanded(
@@ -277,6 +293,11 @@ class _MusicScreenState extends State<MusicScreen>
     );
   }
 
+  void resetWebSocket() {
+    _webSocketChannel = MusicScreenController().getWebSocket();
+    _webSocketChannel.stream.listen(webSocketListener);
+  }
+
   void voteOnSong(int songId) {
     MusicScreenController().voteOnSong(songId, (responseModel) {
       if (responseModel != null) {
@@ -288,14 +309,18 @@ class _MusicScreenState extends State<MusicScreen>
   }
 
   void getCurrentSong() {
+    CustomProgressIndicator.showProgress(_progressKey, context);
     MusicScreenController().getCurrentSong((responseModel) {
       if (responseModel != null) {
         if (responseModel.error != null) {
           print("${responseModel.error}");
+          CustomProgressIndicator.removeProgress(_progressKey);
         } else {
           setState(() {
             parsSong(responseModel.response);
           });
+
+          getVotingSongs();
         }
       }
     });
@@ -304,6 +329,7 @@ class _MusicScreenState extends State<MusicScreen>
   void getVotingSongs() {
     MusicScreenController().getVotingSongList((responseModel) {
       if (responseModel != null) {
+        CustomProgressIndicator.removeProgress(_progressKey);
         if (responseModel.error != null) {
           showSnackBar(context, responseModel.error);
         } else {
@@ -320,10 +346,12 @@ class _MusicScreenState extends State<MusicScreen>
   }
 
   void getTempSongs() {
+    CustomProgressIndicator.showProgress(_progressKey, context);
     MusicScreenController().getTempSongs((responseModel) {
       if (responseModel != null) {
         if (responseModel.error != null) {
           showSnackBar(context, responseModel.error);
+          CustomProgressIndicator.removeProgress(_progressKey);
         } else {
           _allSongs.addAll(responseModel.response.songs);
           getAllSongs();
@@ -335,6 +363,7 @@ class _MusicScreenState extends State<MusicScreen>
   void getAllSongs() {
     MusicScreenController().getAllSongs((responseModel) {
       if (responseModel != null) {
+        CustomProgressIndicator.removeProgress(_progressKey);
         if (responseModel.error != null) {
           showSnackBar(context, responseModel.error);
         } else {
@@ -350,8 +379,10 @@ class _MusicScreenState extends State<MusicScreen>
     File file = await FilePicker.getFile(
         type: FileType.custom, allowedExtensions: ['mp3']);
     if (file != null) {
+      CustomProgressIndicator.showProgress(_progressKey, context);
       MusicScreenController().postUserSong(file, (responseModel) {
         if (responseModel != null) {
+          CustomProgressIndicator.removeProgress(_progressKey);
           if (responseModel.error != null) {
             showSnackBar(context, responseModel.error);
           }
@@ -369,11 +400,8 @@ class _MusicScreenState extends State<MusicScreen>
     if (_streamSub != null) {
       _streamSub.cancel();
     }
-
-    setState(() {
-      _streamSub = playingSong().listen((event) {
-        _songStream.sink.add(event);
-      });
+    _streamSub = playingSong().listen((event) {
+      _songStream.sink.add(event);
     });
   }
 

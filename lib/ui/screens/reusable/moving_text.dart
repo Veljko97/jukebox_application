@@ -50,6 +50,7 @@ class _MovingTextState extends State<MovingText>
       if(timer != null){
         timer.cancel();
       }
+      scrollController.jumpTo(0);
       timer = Timer.periodic(Duration(milliseconds: _timerRest), (timer) {
         double maxScrollExtent = scrollController.position.maxScrollExtent;
         double pixels = scrollController.position.pixels;
@@ -124,13 +125,15 @@ class _MovingTextState extends State<MovingText>
   @override
   Widget build(BuildContext context) {
     bool moveText = false;
-    if(widget.text.length > 20){
+    if(widget.text.length > 60){
       moveText = true;
       WidgetsBinding.instance.addPostFrameCallback((callback) {
         startTimer();
       });
     } else {
-      timer.cancel();
+      if(timer != null) {
+        timer.cancel();
+      }
     }
     return Container(
       height: 12,

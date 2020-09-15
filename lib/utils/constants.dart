@@ -5,4 +5,9 @@ class Constants {
 
     static const String ROUTE_CONNECTION_SCREEN = "connectScreen";
     static const String ROUTE_MUSIC_SCREEN = "musicScreen";
+
+    static const String ASSETS_LOCATION = "assets/";
+    static const String IMAGES_LOCATION = ASSETS_LOCATION + "images/";
+
+    static const String LOGO_IMAGE = IMAGES_LOCATION + "icon.png";
 }

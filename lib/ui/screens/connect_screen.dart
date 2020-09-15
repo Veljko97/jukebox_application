@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:barcode_scan/barcode_scan.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:jukebox_application/ui/screen_controllers/connect_screen_controller.dart';
+import 'package:jukebox_application/ui/screens/reusable/custom_progress_indicator.dart';
 import 'package:jukebox_application/ui/screens/reusable/fiield_button.dart';
 import 'package:jukebox_application/utils/constants.dart';
 import 'package:jukebox_application/utils/server_location_utils.dart';
@@ -17,7 +20,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   BuildContext context;
 
   bool _first = true;
-  TextEditingController _serverCodeController = new TextEditingController();
+  GlobalKey _progressKey = GlobalKey();
 
   @override
   void initState() {
@@ -31,30 +34,34 @@ class _ConnectScreenState extends State<ConnectScreen> {
   Widget build(BuildContext context) {
     if (_first) {}
     return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Builder(builder: (buildContext) {
-          this.context = buildContext;
-          return buildBody();
-        }),
-      ),
+      body: Builder(builder: (buildContext) {
+        this.context = buildContext;
+        return buildBody();
+      }),
     );
   }
 
   Widget buildBody() {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: _serverCodeController,
+        Expanded(
+          child: Align(
+            alignment: Alignment.center,
+            child: Image(
+              image: AssetImage(Constants.LOGO_IMAGE),
+            ),
+          ),
         ),
-        FilledButton(
-          onCLick: () {
-            startScan();
-          },
-          text: "next Screen",
-          colorFill: Colors.red,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+          child: FilledButton(
+            onCLick: () {
+              startScan();
+            },
+            text: "Scan Local Jukebox",
+            colorFill: Theme.of(context).buttonColor,
+          ),
         ),
       ],
     );
@@ -71,26 +78,28 @@ class _ConnectScreenState extends State<ConnectScreen> {
   }
 
   startScan() async {
-    String serverCode = _serverCodeController.text;
-    if (serverCode == null || serverCode.isEmpty) {
-      var result = await BarcodeScanner.scan();
-      if (result != null &&
-          result.rawContent != null &&
-          result.rawContent.isNotEmpty) {
-        serverCode = getServerKeyFromLink(result.rawContent);
-      }
+    String serverCode = "";
+    var result = await BarcodeScanner.scan();
+    if (result != null &&
+        result.rawContent != null &&
+        result.rawContent.isNotEmpty) {
+      serverCode = getServerKeyFromLink(result.rawContent);
     }
+
     connectToServer(serverCode);
   }
 
-  void connectToServer(String serverKey){
+  void connectToServer(String serverKey) {
+    CustomProgressIndicator.showProgress(_progressKey, context);
     ConnectScreenController().getServerLocations(serverKey, (responseModel) {
       if (responseModel != null) {
+        CustomProgressIndicator.removeProgress(_progressKey);
         if (responseModel.error != null) {
           showSnackBar(context, "Did not connect try scanning again");
         } else {
           ServerLocationsUtils.IP_ADDRESS = responseModel.response.location;
-          Navigator.of(context).pushNamedAndRemoveUntil(Constants.ROUTE_MUSIC_SCREEN, (_) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil(
+              Constants.ROUTE_MUSIC_SCREEN, (_) => false);
         }
       }
     });
